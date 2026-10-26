@@ -54,134 +54,47 @@ cd frontend && npm install && npm run dev                          # Web en :517
 
 ## Arquitectura
 
-### Diagrama de contenedores
+> Los diagramas están como imágenes en [`docs/diagramas/`](docs/diagramas/). Junto a cada una está su fuente `.mmd` (Mermaid) por si hay que editarla.
 
-```mermaid
-flowchart LR
-    U[Usuario<br/>navegador] -->|HTTP :8080| W
+### 1. Contenedores: qué levanta `docker compose up`
 
-    subgraph Docker Compose
-        W[web<br/>nginx + React SPA]
-        A[api<br/>NestJS]
-        D[(db<br/>PostgreSQL 16)]
-    end
+![Diagrama de contenedores](docs/diagramas/1-arquitectura.png)
 
-    W -->|/api/* proxy| A
-    A -->|TypeORM| D
-```
+- **web:** nginx sirve la aplicación React y reenvía todo lo que empieza con `/api` al contenedor de la API. El navegador habla con un solo origen (sin CORS) y la URL de la API no queda fija al compilar.
+- **api:** NestJS. Al arrancar crea las tablas y carga los datos de demostración.
+- **db:** PostgreSQL. La API espera a que la base esté lista (healthcheck) antes de iniciar.
 
-nginx sirve la SPA y redirige `/api` a la API: el navegador trabaja con un solo origen (sin CORS) y la URL de la API no queda fija en el build.
+### 2. Capas dentro de cada módulo del backend
 
-### Diagrama de capas (cada módulo del backend)
+![Diagrama de capas](docs/diagramas/2-capas.png)
 
-```mermaid
-flowchart TB
-    subgraph Presentacion[Presentación]
-        C[Controllers + DTOs<br/>Guards JWT / Roles]
-    end
-    subgraph Aplicacion[Aplicación]
-        S[Servicios / casos de uso<br/>InscripcionesService, CalificacionesService…]
-    end
-    subgraph Dominio
-        E[Entidades]
-        P[Puertos: interfaces de repositorio]
-        R[Reglas de inscripción · Estrategias de cálculo<br/>Eventos de dominio]
-    end
-    subgraph Infraestructura
-        T[Repositorios TypeORM]
-        L[Listener de auditoría]
-    end
+Cada módulo tiene las carpetas `presentation/`, `application/`, `domain/` e `infrastructure/`. La idea clave es que el **dominio** (las reglas académicas) no depende de nada técnico: la infraestructura implementa sus interfaces, no al revés.
 
-    C --> S
-    S --> P
-    S --> R
-    T -. implementa .-> P
-    T --> DB[(PostgreSQL)]
-    S -- emite evento --> BUS{{EventEmitter}}
-    BUS --> L
-```
+### 3. Módulos del backend y sus dependencias
 
-### Módulos del backend
+![Diagrama de módulos](docs/diagramas/3-modulos.png)
 
-```mermaid
-flowchart LR
-    AUTH[auth<br/>usuarios, JWT, roles]
-    CAT[catalogo<br/>materias, cursos, docentes]
-    INS[inscripciones<br/>estudiantes, inscripciones]
-    CAL[calificaciones<br/>notas, historial]
-    AUD[auditoria<br/>suscriptor de eventos]
+- Las flechas sólidas indican "usa a". Van en una sola dirección, sin dependencias circulares.
+- Las flechas punteadas son **eventos** (patrón Observer). Auditoría no depende de ningún módulo: solo escucha.
 
-    CAT --> AUTH
-    INS --> AUTH
-    INS --> CAT
-    CAL --> INS
-    CAL --> CAT
-    INS -. inscripcion.creada .-> AUD
-    CAL -. nota.registrada .-> AUD
-```
+### 4. Modelo de datos
 
-Las dependencias van en una sola dirección (sin ciclos). Auditoría no depende de nadie: solo escucha eventos.
+![Modelo de datos](docs/diagramas/4-modelo-datos.png)
 
-### Modelo de datos
+Restricciones únicas clave en la base de datos:
+- `cursos(materiaId, gestion, paralelo)`: no se repite el paralelo de una materia en la misma gestión.
+- `inscripciones(estudianteId, cursoId)`: no hay inscripciones duplicadas.
+- `notas(inscripcionId, evaluacion)`: una nota por evaluación.
 
-```mermaid
-erDiagram
-    USUARIOS ||--o| ESTUDIANTES : "perfil"
-    USUARIOS ||--o| DOCENTES : "perfil"
-    MATERIAS ||--o{ CURSOS : "se ofrece en"
-    DOCENTES |o--o{ CURSOS : "dicta"
-    ESTUDIANTES ||--o{ INSCRIPCIONES : "realiza"
-    CURSOS ||--o{ INSCRIPCIONES : "recibe"
-    INSCRIPCIONES ||--o{ NOTAS : "tiene"
+### 5. Flujo de una inscripción (validación de cupo y duplicados)
 
-    USUARIOS {
-        int id PK
-        string email UK
-        string passwordHash
-        string rol
-    }
-    ESTUDIANTES {
-        int id PK
-        int usuarioId FK
-        string registro UK
-        string ci UK
-    }
-    DOCENTES {
-        int id PK
-        int usuarioId FK
-        string especialidad
-    }
-    MATERIAS {
-        int id PK
-        string codigo UK
-        string nombre
-        int creditos
-    }
-    CURSOS {
-        int id PK
-        int materiaId FK
-        int docenteId FK
-        string gestion
-        string paralelo
-        int cupoMaximo
-        string metodoCalificacion
-    }
-    INSCRIPCIONES {
-        int id PK
-        int estudianteId FK
-        int cursoId FK
-        date fecha
-    }
-    NOTAS {
-        int id PK
-        int inscripcionId FK
-        string evaluacion
-        float valor
-        int ponderacion
-    }
-```
+![Flujo de inscripción](docs/diagramas/5-flujo-inscripcion.png)
 
-Restricciones únicas clave: `cursos(materiaId, gestion, paralelo)`, `inscripciones(estudianteId, cursoId)` y `notas(inscripcionId, evaluacion)`.
+Este es el flujo más importante del sistema:
+1. Los guards verifican el token y el rol.
+2. El servicio abre una transacción y **bloquea la fila del curso**, así que dos inscripciones al último cupo no pueden pasar a la vez.
+3. Se ejecutan las reglas en orden (patrón Strategy).
+4. Si todo pasa, se guarda y se publica el evento de auditoría (patrón Observer).
 
 ---
 
@@ -272,6 +185,7 @@ frontend/src/
   auth/            contexto de sesión
   components/      layout por rol y componentes visuales
   pages/           admin/, docente/, estudiante/
+docs/diagramas/   diagramas de arquitectura (PNG + fuente .mmd)
 docker-compose.yml
 ```
 
@@ -279,7 +193,7 @@ docker-compose.yml
 
 ## Decisiones técnicas y concesiones
 
-- **JWT** (no PASETO): la integración con NestJS/Passport es estándar y madura. PASETO evitaría elegir mal el algoritmo, pero agregaba riesgo para el tiempo disponible. El token dura 1 hora (`JWT_EXPIRES_IN`) y se guarda en `localStorage`. En producción convendría una cookie `httpOnly` con refresh token.
+- **JWT**: la integración con NestJS/Passport es estándar y madura. PASETO evitaría elegir mal el algoritmo, pero agregaba riesgo para el tiempo disponible. El token dura 1 hora (`JWT_EXPIRES_IN`) y se guarda en `localStorage`. En producción convendría una cookie `httpOnly` con refresh token.
 - **`synchronize: true`** en TypeORM: crea el esquema a partir de las entidades, práctico para la prueba. En producción se usarían **migraciones**.
 - **Entidades del dominio con decoradores de TypeORM:** es una concesión pragmática respecto a una hexagonal "pura", que separaría el modelo de dominio del de persistencia. La dependencia del ORM sí queda aislada en los repositorios.
 - **Excepciones HTTP en la capa de aplicación** (`ConflictException`, etc.) para simplificar. Con más tiempo se usarían errores de dominio propios, traducidos por un filtro de excepciones.

@@ -1,0 +1,57 @@
+erDiagram
+    USUARIOS ||--o| ESTUDIANTES : "tiene perfil"
+    USUARIOS ||--o| DOCENTES : "tiene perfil"
+    MATERIAS ||--o{ CURSOS : "se ofrece en"
+    DOCENTES |o--o{ CURSOS : "dicta"
+    ESTUDIANTES ||--o{ INSCRIPCIONES : "realiza"
+    CURSOS ||--o{ INSCRIPCIONES : "recibe"
+    INSCRIPCIONES ||--o{ NOTAS : "tiene"
+
+    USUARIOS {
+        int id PK
+        string email UK
+        string passwordHash
+        string rol "ADMIN | DOCENTE | ESTUDIANTE"
+    }
+    ESTUDIANTES {
+        int id PK
+        int usuarioId FK
+        string registro UK
+        string ci UK
+        string nombres
+        string apellidos
+    }
+    DOCENTES {
+        int id PK
+        int usuarioId FK
+        string nombres
+        string apellidos
+    }
+    MATERIAS {
+        int id PK
+        string codigo UK "ej. INF120"
+        string nombre
+        int creditos
+    }
+    CURSOS {
+        int id PK
+        int materiaId FK
+        int docenteId FK
+        string gestion "ej. 2-2026"
+        string paralelo "ej. A"
+        int cupoMaximo
+        string metodoCalificacion "PONDERADO | SIMPLE"
+    }
+    INSCRIPCIONES {
+        int id PK
+        int estudianteId FK "UNIQUE con cursoId"
+        int cursoId FK
+        date fecha
+    }
+    NOTAS {
+        int id PK
+        int inscripcionId FK
+        string evaluacion "ej. Parcial 1"
+        float valor "0 a 100"
+        int ponderacion "porcentaje"
+    }

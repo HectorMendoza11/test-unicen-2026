@@ -1,0 +1,24 @@
+sequenceDiagram
+    actor E as Estudiante
+    participant C as Controller
+    participant S as InscripcionesService
+    participant R as Reglas (Strategy)
+    participant BD as PostgreSQL
+    participant AU as Auditoría (Observer)
+
+    E->>C: POST /api/inscripciones { cursoId }
+    Note over C: Guards: ¿JWT válido? ¿rol permitido?
+    C->>S: inscribir(cursoId, usuario)
+    S->>BD: BEGIN + SELECT curso FOR UPDATE
+    Note over S,BD: Bloquea la fila del curso: otra<br/>inscripción simultánea espera aquí
+    S->>R: Regla 1: ¿ya inscrito en este curso?
+    S->>R: Regla 2: ¿otro paralelo de la misma materia?
+    S->>R: Regla 3: ¿quedan cupos?
+    alt alguna regla falla
+        S->>BD: ROLLBACK
+        S-->>E: 409 Conflict + mensaje
+    else todas las reglas pasan
+        S->>BD: INSERT inscripción + COMMIT
+        S-)AU: evento inscripcion.creada
+        S-->>E: 201 Created
+    end

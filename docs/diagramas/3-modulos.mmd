@@ -1,0 +1,20 @@
+flowchart TB
+    CAL["📊 <b>calificaciones</b><br/>notas · historial"]
+    INS["📝 <b>inscripciones</b><br/>estudiantes · inscripciones"]
+    CAT["📚 <b>catalogo</b><br/>materias · cursos · docentes"]
+    AUTH["🔐 <b>auth</b><br/>usuarios · login JWT · roles"]
+    AUD["🕵️ <b>auditoria</b><br/>escucha eventos y los registra"]
+
+    CAL --> INS
+    CAL --> CAT
+    INS --> CAT
+    INS --> AUTH
+    CAT --> AUTH
+
+    INS -. "inscripcion.creada" .-> AUD
+    CAL -. "nota.registrada" .-> AUD
+
+    classDef mod fill:#eff6ff,stroke:#1d4ed8,color:#0f172a
+    classDef obs fill:#fef3c7,stroke:#b45309,color:#0f172a
+    class AUTH,CAT,INS,CAL mod
+    class AUD obs

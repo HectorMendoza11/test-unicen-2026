@@ -1,0 +1,20 @@
+flowchart LR
+    U(["👤 Usuario<br/>navegador web"])
+
+    subgraph DC["Docker Compose"]
+        direction LR
+        W["🌐 <b>web</b><br/>React + nginx<br/>puerto 8080"]
+        A["⚙️ <b>api</b><br/>NestJS<br/>puerto 3000"]
+        D[("🗄️ <b>db</b><br/>PostgreSQL 16<br/>puerto 5432")]
+    end
+
+    U -- "1. abre la web" --> W
+    W -- "2. reenvía /api/*" --> A
+    A -- "3. consulta SQL<br/>(TypeORM)" --> D
+
+    classDef web fill:#dbeafe,stroke:#1d4ed8,color:#0f172a
+    classDef api fill:#dcfce7,stroke:#15803d,color:#0f172a
+    classDef db fill:#fef3c7,stroke:#b45309,color:#0f172a
+    class W web
+    class A api
+    class D db

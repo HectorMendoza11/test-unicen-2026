@@ -1,0 +1,19 @@
+%%{init: {"flowchart": {"wrappingWidth": 520, "nodeSpacing": 30, "rankSpacing": 45}}}%%
+flowchart TB
+    P["<b>1. Presentación</b> — Controllers · DTOs · Guards JWT y Roles<br/><i>Recibe la petición HTTP, valida los datos y los permisos</i>"]
+    AP["<b>2. Aplicación</b> — Servicios / casos de uso<br/><i>Coordina el proceso. Ej: InscripcionesService.inscribir()</i>"]
+    DO["<b>3. Dominio</b> — Entidades · Interfaces de repositorio · Reglas · Estrategias · Eventos<br/><i>Las reglas del negocio. No depende de HTTP ni de la base de datos</i>"]
+    IN["<b>4. Infraestructura</b> — Repositorios TypeORM · Listener de auditoría<br/><i>Implementa las interfaces del dominio con tecnología concreta</i>"]
+    BD[("PostgreSQL")]
+
+    P -- llama a --> AP
+    AP -- usa --> DO
+    IN -- implementa --> DO
+    IN -- guarda en --> BD
+
+    classDef capa fill:#f8fafc,stroke:#334155,color:#0f172a
+    classDef dominio fill:#dcfce7,stroke:#15803d,color:#0f172a
+    classDef bd fill:#fef3c7,stroke:#b45309,color:#0f172a
+    class P,AP,IN capa
+    class DO dominio
+    class BD bd
