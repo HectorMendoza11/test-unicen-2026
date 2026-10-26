@@ -47,5 +47,15 @@ services:
       timeout: 5s
       retries: 20
 
+  # Web React servida por nginx; nginx también hace de proxy de /api hacia la API.
+  web:
+    build: ./frontend
+    container_name: unicen-web
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
 volumes:
   db_data:
