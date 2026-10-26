@@ -1,4 +1,10 @@
+# Levanta el sistema completo: base de datos, API y web.
+#   docker compose up --build
+# Web: http://localhost:8080 | API: http://localhost:3000/api | Swagger: http://localhost:3000/api/docs
+# Las variables ${VAR:-default} se pueden sobreescribir con un archivo .env (ver .env.example).
+
 services:
+  # PostgreSQL. Los datos persisten en el volumen db_data.
   db:
     image: postgres:16-alpine
     container_name: unicen-db
@@ -10,29 +16,36 @@ services:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+    # La API espera a que este chequeo pase antes de arrancar.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-unicen} -d ${POSTGRES_DB:-sistema_academico}"]
       interval: 5s
       timeout: 5s
       retries: 10
 
+  # API NestJS. Al iniciar crea las tablas y carga datos de demostración si la BD está vacía.
   api:
     build: ./backend
     container_name: unicen-api
     environment:
-      DB_HOST: db
+      DB_HOST: db # nombre del servicio de la BD dentro de la red de Docker
       DB_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-unicen}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-unicen}
       POSTGRES_DB: ${POSTGRES_DB:-sistema_academico}
       API_PORT: 3000
       JWT_SECRET: ${JWT_SECRET:-cambiar_este_secreto}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-3600} # segundos
     ports:
       - "${API_PORT:-3000}:3000"
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
 volumes:
   db_data:
