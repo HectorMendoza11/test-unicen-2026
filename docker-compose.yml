@@ -16,5 +16,23 @@ services:
       timeout: 5s
       retries: 10
 
+  api:
+    build: ./backend
+    container_name: unicen-api
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-unicen}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-unicen}
+      POSTGRES_DB: ${POSTGRES_DB:-sistema_academico}
+      API_PORT: 3000
+      JWT_SECRET: ${JWT_SECRET:-cambiar_este_secreto}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
+    ports:
+      - "${API_PORT:-3000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   db_data:
